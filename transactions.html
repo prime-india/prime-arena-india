@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Transactions - Prime Arena</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore-compat.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    body {
+      background: #0a0e27;
+      color: white;
+      font-family: 'Arial', sans-serif;
+      padding-bottom: 80px;
+      min-height: 100vh;
+    }
+    
+    .topbar {
+      display: flex;
+      align-items: center;
+      padding: 15px;
+      background: #0d1230;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      gap: 15px;
+    }
+    
+    .back-btn {
+      font-size: 24px;
+      color: white;
+      cursor: pointer;
+    }
+    
+    .topbar-title {
+      font-size: 18px;
+      font-weight: bold;
+      color: white;
+    }
+    
+    .tabs {
+      display: flex;
+      background: #1a1f3a;
+      border-bottom: 1px solid #2a2f4a;
+    }
+    
+    .tab {
+      flex: 1;
+      padding: 15px;
+      text-align: center;
+      font-size: 14px;
+      font-weight: bold;
+      color: #666;
+      cursor: pointer;
+      border-bottom: 3px solid transparent;
+    }
+    
+    .tab.active {
+      color: #ffa500;
+      border-bottom: 3px solid #ffa500;
+    }
+    
+    .tx-list {
+      padding: 15px;
+    }
+    
+    .tx-card {
+      background: #1a1f3a;
+      border-radius: 12px;
+      padding: 15px;
+      margin-bottom: 12px;
+      border-left: 4px solid #00c853;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+    }
+    
+    .tx-card.debit {
+      border-left-color: #ff3131;
+    }
+    
+    .tx-card.pending {
+      border-left-color: #ffa500;
+    }
+    
+    .tx-card.purple {
+      border-left-color: #8e24aa;
+    }
+    
+    .tx-left {
+      flex: 1;
+      min-width: 0;
+    }
+    
+    .tx-type {
+      font-size: 14px;
+      font-weight: bold;
+      color: white;
+      margin-bottom: 5px;
+    }
+    
+    .tx-sub {
+      font-size: 11px;
+      color: #888;
+      margin-bottom: 3px;
+      word-break: break-all;
+    }
+    
+    .tx-date {
+      font-size: 11px;
+      color: #666;
+    }
+    
+    .tx-right {
+      text-align: right;
+      flex-shrink: 0;
+    }
+    
+    .tx-amount {
+      font-size: 18px;
+      font-weight: bold;
+      color: #00c853;
+      margin-bottom: 3px;
+    }
+    
+    .tx-amount.debit {
+      color: #ff3131;
+    }
+    
+    .tx-amount.pending {
+      color: #ffa500;
+    }
+    
+    .tx-amount.purple {
+      color: #b84dff;
+    }
+    
+    .tx-status {
+      font-size: 9px;
+      padding: 3px 8px;
+      border-radius: 10px;
+      background: #00c853;
+      color: white;
+      font-weight: bold;
+      text-transform: uppercase;
+      display: inline-block;
+    }
+    
+    .tx-status.pending {
+      background: #ffa500;
+      color: #0a0e27;
+    }
+    
+    .tx-status.failed {
+      background: #ff3131;
+      color: white;
+    }
+    
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: #666;
+    }
+    
+    .empty-icon {
+      font-size: 60px;
+      margin-bottom: 15px;
+      opacity: 0.5;
+    }
+    
+    .empty-text {
+      font-size: 15px;
+      margin-bottom: 5px;
+    }
+    
+    .empty-subtext {
+      font-size: 12px;
+      color: #444;
+    }
+    
+    .loading-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: #ffa500;
+      font-size: 14px;
+    }
+    
+    .loading-icon {
+      display: inline-block;
+      width: 40px;
+      height: 40px;
+      border: 4px solid #1a1f3a;
+      border-top-color: #ffa500;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-bottom: 15px;
+    }
+    
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    
+    .bottom-nav {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: #0d1230;
+      display: flex;
+      justify-content: space-around;
+      padding: 10px 0;
+      border-top: 1px solid #2a2f4a;
+      z-index: 100;
+    }
+    
+    .nav-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      cursor: pointer;
+      color: #666;
+      font-size: 11px;
+      padding: 5px 10px;
+    }
+    
+    .nav-item.active {
+      color: #ffa500;
+    }
+    
+    .nav-icon {
+      font-size: 22px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="topbar">
+    <div class="back-btn" onclick="window.location.href='wallet.html'">←</div>
+    <div class="topbar-title">MY TRANSACTIONS</div>
+  </div>
+
+  <div class="tabs">
+    <div class="tab active" id="walletTab" onclick="switchTab('wallet')">Wallet Transactions</div>
+    <div class="tab" id="withdrawTab" onclick="switchTab('withdraw')">Withdrawals</div>
+  </div>
+
+  <div class="tx-list" id="txList">
+    <div class="loading-state">
+      <div class="loading-icon"></div>
+      <div>Loading transactions...</div>
+    </div>
+  </div>
+
+  <div class="bottom-nav">
+    <div class="nav-item" onclick="window.location.href='tournaments.html'">
+      <span class="nav-icon">🎮</span>
+      <span>Tournaments</span>
+    </div>
+    <div class="nav-item" onclick="window.location.href='leaderboard.html'">
+      <span class="nav-icon">🏆</span>
+      <span>Leaderboard</span>
+    </div>
+    <div class="nav-item" onclick="window.location.href='home.html'">
+      <span class="nav-icon">🏠</span>
+      <span>Home</span>
+    </div>
+    <div class="nav-item active" onclick="window.location.href='wallet.html'">
+      <span class="nav-icon">💰</span>
+      <span>Wallet</span>
+    </div>
+    <div class="nav-item" onclick="window.location.href='profile.html'">
+      <span class="nav-icon">👤</span>
+      <span>Profile</span>
+    </div>
+  </div>
+
+  <script>
+    var firebaseConfig = {
+      apiKey: "AIzaSyC22oO0eveUN3GL9WNtJSzdKghN-X67ZmU",
+      authDomain: "prime-arena-a302b.firebaseapp.com",
+      projectId: "prime-arena-a302b",
+      storageBucket: "prime-arena-a302b.firebasestorage.app",
+      messagingSenderId: "118236794000",
+      appId: "1:118236794000:web:cd0e5bf7503b72f1cf5c15",
+      measurementId: "G-EQJP1D9C92"
+    };
+
+    if (!firebase.apps || !firebase.apps.length) firebase.initializeApp(firebaseConfig);
+    var db = firebase.firestore();
+
+    var user = {};
+    try { user = JSON.parse(localStorage.getItem('primeArenaUser') || '{}'); } catch(e) { user = {}; }
+    if (!user.id) { window.location.href = 'login.html'; }
+
+    var currentTab = 'wallet';
+    var cachedTransactions = null;
+    var cachedWithdrawals = null;
+
+    // ============ HELPERS ============
+    function esc(s) {
+      if (s === undefined || s === null) return '';
+      return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function fmtDate(iso) {
+      if (!iso) return '-';
+      try {
+        var d = new Date(iso);
+        if (isNaN(d.getTime())) return '-';
+        var day = d.getDate().toString().padStart(2, '0');
+        var monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        var month = monthNames[d.getMonth()];
+        var year = d.getFullYear();
+        var hours = d.getHours().toString().padStart(2, '0');
+        var mins = d.getMinutes().toString().padStart(2, '0');
+        return day + ' ' + month + ' ' + year + ', ' + hours + ':' + mins;
+      } catch(e) { return '-'; }
+    }
+
+    // ============ SWITCH TAB ============
+    window.switchTab = function(tab) {
+      currentTab = tab;
+      document.getElementById('walletTab').classList.remove('active');
+      document.getElementById('withdrawTab').classList.remove('active');
+      if (tab === 'wallet') {
+        document.getElementById('walletTab').classList.add('active');
+        renderWallet();
+      } else {
+        document.getElementById('withdrawTab').classList.add('active');
+        renderWithdrawals();
+      }
+    };
+
+    // ============ LOAD ALL ============
+    function loadAll() {
+      document.getElementById('txList').innerHTML = '<div class="loading-state"><div class="loading-icon"></div><div>Loading transactions...</div></div>';
+
+      // Load transactions
+      db.collection('transactions')
+        .where('userId', '==', user.id)
+        .get()
+        .then(function(snap) {
+          cachedTransactions = [];
+          snap.forEach(function(doc) {
+            var d = doc.data();
+            d.id = doc.id;
+            cachedTransactions.push(d);
+          });
+          cachedTransactions.sort(function(a, b) {
+            var ta = new Date(a.timestamp || a.createdAt || 0).getTime();
+            var tb = new Date(b.timestamp || b.createdAt || 0).getTime();
+            return tb - ta;
+          });
+
+          // Load withdrawals
+          return db.collection('withdrawals')
+            .where('userId', '==', user.id)
+            .get();
+        })
+        .then(function(snap) {
+          cachedWithdrawals = [];
+          snap.forEach(function(doc) {
+            var d = doc.data();
+            d.id = doc.id;
+            cachedWithdrawals.push(d);
+          });
+          cachedWithdrawals.sort(function(a, b) {
+            var ta = new Date(a.createdAt || a.withdrawTime || 0).getTime();
+            var tb = new Date(b.createdAt || b.withdrawTime || 0).getTime();
+            return tb - ta;
+          });
+
+          // Render based on current tab
+          if (currentTab === 'wallet') renderWallet();
+          else renderWithdrawals();
+
+        })
+        .catch(function(error) {
+          console.error('Load error:', error);
+          document.getElementById('txList').innerHTML =
+            '<div class="empty-state">' +
+              '<div class="empty-icon">❌</div>' +
+              '<div class="empty-text">Error: ' + esc(error.message) + '</div>' +
+              '<div class="empty-subtext">Please check your internet connection</div>' +
+            '</div>';
+        });
+    }
+
+    // ============ RENDER WALLET TRANSACTIONS ============
+    function renderWallet() {
+      var list = document.getElementById('txList');
+
+      if (!cachedTransactions) {
+        list.innerHTML = '<div class="loading-state"><div class="loading-icon"></div><div>Loading...</div></div>';
+        return;
+      }
+
+      if (cachedTransactions.length === 0) {
+        list.innerHTML =
+          '<div class="empty-state">' +
+            '<div class="empty-icon">📋</div>' +
+            '<div class="empty-text">No Transactions Yet</div>' +
+            '<div class="empty-subtext">Your wallet history will appear here</div>' +
+          '</div>';
+        return;
+      }
+
+      var html = '';
+      cachedTransactions.forEach(function(t) {
+        var type = t.type || 'unknown';
+        var amount = parseInt(t.amount) || 0;
+        var status = t.status || 'completed';
+        var timestamp = t.timestamp || t.createdAt;
+
+        var title = '';
+        var sub = '';
+        var cardClass = '';
+        var amountPrefix = '';
+        var amountClass = '';
+
+        if (type === 'deposit') {
+          title = '💰 Deposit';
+          sub = t.utr ? 'UTR: ' + t.utr : '';
+          cardClass = '';
+          amountPrefix = '+';
+          amountClass = '';
+
+        } else if (type === 'match_entry') {
+          title = '🎮 Match Entry';
+          sub = (t.matchTitle || 'Match') + (t.slotNumber ? ' • Slot #' + t.slotNumber : '');
+          cardClass = 'debit';
+          amountPrefix = '-';
+          amountClass = 'debit';
+
+        } else if (type === 'match_win') {
+          title = '🏆 Match Win';
+          var extras = [];
+          if (t.rank) extras.push('Rank #' + t.rank);
+          if (t.kills) extras.push(t.kills + ' kills');
+          sub = (t.matchTitle || 'Match') + (extras.length ? ' • ' + extras.join(' • ') : '');
+          cardClass = '';
+          amountPrefix = '+';
+          amountClass = '';
+
+        } else if (type === 'withdraw') {
+          title = '💸 Withdrawal';
+          sub = t.upiId ? 'UPI: ' + t.upiId : '';
+          cardClass = 'debit';
+          amountPrefix = '-';
+          amountClass = 'debit';
+
+        } else if (type === 'redeem') {
+          title = '🎁 Redeem Code';
+          var rsub = [];
+          if (t.coins) rsub.push(t.coins + ' coins');
+          if (t.amount) rsub.push('₹' + t.amount);
+          sub = rsub.join(' • ');
+          cardClass = 'purple';
+          amountPrefix = '';
+          amountClass = 'purple';
+
+        } else {
+          title = '📝 ' + (type.charAt(0).toUpperCase() + type.slice(1));
+          sub = '';
+          amountPrefix = '';
+          amountClass = '';
+        }
+
+        // Status badge
+        var statusClass = '';
+        if (status === 'pending') statusClass = 'pending';
+        else if (status === 'failed' || status === 'rejected') statusClass = 'failed';
+
+        var amountDisplay = '';
+        if (type === 'redeem') {
+          amountDisplay = '🪙';
+        } else {
+          amountDisplay = amountPrefix + '₹' + amount;
+        }
+
+        html += '<div class="tx-card ' + cardClass + '">' +
+          '<div class="tx-left">' +
+            '<div class="tx-type">' + esc(title) + '</div>' +
+            (sub ? '<div class="tx-sub">' + esc(sub) + '</div>' : '') +
+            '<div class="tx-date">' + fmtDate(timestamp) + '</div>' +
+          '</div>' +
+          '<div class="tx-right">' +
+            '<div class="tx-amount ' + amountClass + '">' + amountDisplay + '</div>' +
+            '<div class="tx-status ' + statusClass + '">' + esc(status) + '</div>' +
+          '</div>' +
+        '</div>';
+      });
+
+      list.innerHTML = html;
+    }
+
+    // ============ RENDER WITHDRAWALS ============
+    function renderWithdrawals() {
+      var list = document.getElementById('txList');
+
+      if (!cachedWithdrawals) {
+        list.innerHTML = '<div class="loading-state"><div class="loading-icon"></div><div>Loading...</div></div>';
+        return;
+      }
+
+      if (cachedWithdrawals.length === 0) {
+        list.innerHTML =
+          '<div class="empty-state">' +
+            '<div class="empty-icon">💸</div>' +
+            '<div class="empty-text">No Withdrawals Yet</div>' +
+            '<div class="empty-subtext">Your withdrawal requests will appear here</div>' +
+          '</div>';
+        return;
+      }
+
+      var html = '';
+      cachedWithdrawals.forEach(function(w) {
+        var amount = parseInt(w.amount) || 0;
+        var status = w.status || 'pending';
+        var timestamp = w.createdAt || w.withdrawTime;
+        var method = w.method || '';
+        var upi = w.upiId || '';
+
+        var cardClass = '';
+        if (status === 'pending') cardClass = 'pending';
+        else if (status === 'paid') cardClass = 'debit';
+        else if (status === 'rejected') cardClass = 'debit';
+
+        var sub = [];
+        if (method) sub.push(method.toUpperCase());
+        if (upi) sub.push(upi);
+
+        var statusClass = '';
+        if (status === 'pending') statusClass = 'pending';
+        else if (status === 'rejected') statusClass = 'failed';
+
+        html += '<div class="tx-card ' + cardClass + '">' +
+          '<div class="tx-left">' +
+            '<div class="tx-type">💸 Withdrawal</div>' +
+            (sub.length ? '<div class="tx-sub">' + esc(sub.join(' • ')) + '</div>' : '') +
+            '<div class="tx-date">' + fmtDate(timestamp) + '</div>' +
+          '</div>' +
+          '<div class="tx-right">' +
+            '<div class="tx-amount debit">-₹' + amount + '</div>' +
+            '<div class="tx-status ' + statusClass + '">' + esc(status) + '</div>' +
+          '</div>' +
+        '</div>';
+      });
+
+      list.innerHTML = html;
+    }
+
+    // ============ INIT ============
+    loadAll();
+  </script>
+  
+  <script type="module" src="ban-check.js"></script>
+</body>
+  </html>
